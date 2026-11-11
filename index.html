@@ -60,6 +60,11 @@ button{cursor:pointer}
 .payment-banner p{color:var(--muted);line-height:1.6;margin:0}
 .payment-banner.visible{display:block}
 .payment-banner.cancelled{background:#30252c;border-color:#775061}
+.license-list{display:grid;gap:12px;margin-top:18px}
+.license-card{padding:15px;border:1px solid var(--line);border-radius:12px;background:#0c1729}
+.license-card strong{display:block;margin-bottom:9px}
+.license-code{display:block;width:100%;overflow-wrap:anywhere;padding:12px;background:#080e1c;border:1px solid #33415e;border-radius:9px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--good);margin-bottom:10px}
+.license-actions{display:flex;gap:10px;flex-wrap:wrap}
 @media(max-width:850px){.layout{grid-template-columns:1fr}.panel{position:static}.products{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:500px){.wrap{padding:15px}.products{gap:10px}.product-body{padding:12px}.art{height:120px;font-size:45px}.product h3{font-size:15px}.desc{font-size:12px}.product-bottom{align-items:stretch;flex-direction:column}.price{font-size:17px}.btn{padding:11px}.hero{padding:12px 0 22px}}
 </style>
@@ -67,7 +72,6 @@ button{cursor:pointer}
 <body>
 
 <div class="wrap">
-
 <header class="top">
   <div class="logo">NORTH<span>STORE.</span></div>
   <button class="cart-button" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">
@@ -78,6 +82,7 @@ button{cursor:pointer}
 <section id="paymentBanner" class="payment-banner" role="status" aria-live="polite">
   <h2 id="paymentTitle"></h2>
   <p id="paymentText"></p>
+  <div id="licenseList" class="license-list"></div>
 </section>
 
 <section class="hero">
@@ -99,51 +104,22 @@ button{cursor:pointer}
       <span>Total</span>
       <span id="total">0 kr</span>
     </div>
-
     <hr class="divider">
-
     <h2>Checkout</h2>
 
     <form id="checkoutForm">
-      <label class="field">
-        <span>Full name</span>
-        <input name="name" autocomplete="name" required maxlength="120">
-      </label>
-
-      <label class="field">
-        <span>Email address</span>
-        <input name="email" type="email" autocomplete="email" required maxlength="200">
-      </label>
-
-      <label class="field">
-        <span>Phone number</span>
-        <input name="phone" type="tel" autocomplete="tel" required maxlength="30">
-      </label>
-
-      <label class="field">
-        <span>Street address</span>
-        <input name="address" autocomplete="street-address" required maxlength="200">
-      </label>
-
-      <label class="field">
-        <span>Postal code</span>
-        <input name="postalCode" autocomplete="postal-code" required maxlength="20">
-      </label>
-
-      <label class="field">
-        <span>City</span>
-        <input name="city" autocomplete="address-level2" required maxlength="100">
-      </label>
+      <label class="field"><span>Full name</span><input name="name" autocomplete="name" required maxlength="120"></label>
+      <label class="field"><span>Email address</span><input name="email" type="email" autocomplete="email" required maxlength="200"></label>
+      <label class="field"><span>Phone number</span><input name="phone" type="tel" autocomplete="tel" required maxlength="30"></label>
+      <label class="field"><span>Street address</span><input name="address" autocomplete="street-address" required maxlength="200"></label>
+      <label class="field"><span>Postal code</span><input name="postalCode" autocomplete="postal-code" required maxlength="20"></label>
+      <label class="field"><span>City</span><input name="city" autocomplete="address-level2" required maxlength="100"></label>
 
       <h3>Payment method</h3>
-
       <div class="methods">
         <label class="method">
           <input type="radio" name="method" value="card" checked>
-          <span>
-            <strong>💳 Card</strong>
-            <small>Visa / Mastercard</small>
-          </span>
+          <span><strong>💳 Card</strong><small>Visa / Mastercard</small></span>
         </label>
       </div>
 
@@ -154,7 +130,6 @@ button{cursor:pointer}
       <button id="payButton" class="btn primary" type="submit" style="width:100%">
         Continue to secure payment
       </button>
-
       <div id="message" role="status" aria-live="polite"></div>
     </form>
   </aside>
@@ -163,352 +138,428 @@ button{cursor:pointer}
 <footer class="footer">
   © <span id="year"></span> North Store · Secure checkout via Stripe (test mode)
 </footer>
-
 </div>
 
 <script>
 'use strict';
 
-// Sandbox endpoint. Do not change until live deployment is ready.
 const API_BASE = 'https://lucstexbedjutesodckk.supabase.co/functions/v1';
 
 const PRODUCTS = [
-  {
-    id: 'swishinator',
-    name: 'Swishinator',
-    description: 'Swishinator product.',
-    price: 50,
-    emoji: '💠'
-  },
-  {
-    id: 'bankinator',
-    name: 'Bankinator',
-    description: 'Bankinator product.',
-    price: 100,
-    emoji: '🔷'
-  }
+  {id:'swishinator',name:'Swishinator',description:'Swishinator product.',price:50,emoji:'💠'},
+  {id:'bankinator',name:'Bankinator',description:'Bankinator product.',price:100,emoji:'🔷'}
 ];
 
-const money = n => new Intl.NumberFormat('sv-SE', {
-  style: 'currency',
-  currency: 'SEK',
-  maximumFractionDigits: 0
+const money = n => new Intl.NumberFormat('sv-SE',{
+  style:'currency',
+  currency:'SEK',
+  maximumFractionDigits:0
 }).format(n);
 
 const cart = {};
 const productsEl = document.getElementById('products');
 
-PRODUCTS.forEach(p => {
-  const el = document.createElement('article');
-  el.className = 'product';
+PRODUCTS.forEach(p=>{
+  const el=document.createElement('article');
+  el.className='product';
 
-  const art = document.createElement('div');
-  art.className = 'art';
-  art.textContent = p.emoji;
+  const art=document.createElement('div');
+  art.className='art';
+  art.textContent=p.emoji;
 
-  const body = document.createElement('div');
-  body.className = 'product-body';
+  const body=document.createElement('div');
+  body.className='product-body';
 
-  const h = document.createElement('h3');
-  h.textContent = p.name;
+  const h=document.createElement('h3');
+  h.textContent=p.name;
 
-  const d = document.createElement('div');
-  d.className = 'desc';
-  d.textContent = p.description;
+  const d=document.createElement('div');
+  d.className='desc';
+  d.textContent=p.description;
 
-  const bottom = document.createElement('div');
-  bottom.className = 'product-bottom';
+  const bottom=document.createElement('div');
+  bottom.className='product-bottom';
 
-  const price = document.createElement('span');
-  price.className = 'price';
-  price.textContent = money(p.price);
+  const price=document.createElement('span');
+  price.className='price';
+  price.textContent=money(p.price);
 
-  const btn = document.createElement('button');
-  btn.className = 'btn';
-  btn.textContent = 'Add to cart';
+  const btn=document.createElement('button');
+  btn.className='btn';
+  btn.textContent='Add to cart';
 
-  btn.addEventListener('click', () => {
-    cart[p.id] = (cart[p.id] || 0) + 1;
+  btn.addEventListener('click',()=>{
+    cart[p.id]=(cart[p.id]||0)+1;
     renderCart();
   });
 
-  bottom.append(price, btn);
-  body.append(h, d, bottom);
-  el.append(art, body);
+  bottom.append(price,btn);
+  body.append(h,d,bottom);
+  el.append(art,body);
   productsEl.append(el);
 });
 
-function renderCart() {
-  const lines = document.getElementById('cartLines');
+function renderCart(){
+  const lines=document.getElementById('cartLines');
   lines.replaceChildren();
 
-  let total = 0;
-  let count = 0;
+  let total=0,count=0;
 
-  for (const p of PRODUCTS) {
-    const qty = cart[p.id] || 0;
-    if (!qty) continue;
+  for(const p of PRODUCTS){
+    const qty=cart[p.id]||0;
+    if(!qty)continue;
 
-    count += qty;
-    total += qty * p.price;
+    count+=qty;
+    total+=qty*p.price;
 
-    const line = document.createElement('div');
-    line.className = 'cart-line';
+    const line=document.createElement('div');
+    line.className='cart-line';
 
-    const left = document.createElement('div');
+    const left=document.createElement('div');
 
-    const name = document.createElement('div');
-    name.className = 'cart-name';
-    name.textContent = p.name;
+    const name=document.createElement('div');
+    name.className='cart-name';
+    name.textContent=p.name;
 
-    const controls = document.createElement('div');
-    controls.className = 'qty';
+    const controls=document.createElement('div');
+    controls.className='qty';
 
-    const minus = document.createElement('button');
-    minus.type = 'button';
-    minus.textContent = '−';
-    minus.setAttribute('aria-label', 'Remove one ' + p.name);
+    const minus=document.createElement('button');
+    minus.type='button';
+    minus.textContent='−';
+    minus.setAttribute('aria-label','Remove one '+p.name);
 
-    minus.onclick = () => {
+    minus.onclick=()=>{
       cart[p.id]--;
-      if (cart[p.id] <= 0) delete cart[p.id];
+      if(cart[p.id]<=0)delete cart[p.id];
       renderCart();
     };
 
-    const number = document.createElement('span');
-    number.textContent = String(qty);
+    const number=document.createElement('span');
+    number.textContent=String(qty);
 
-    const plus = document.createElement('button');
-    plus.type = 'button';
-    plus.textContent = '+';
-    plus.setAttribute('aria-label', 'Add one ' + p.name);
+    const plus=document.createElement('button');
+    plus.type='button';
+    plus.textContent='+';
+    plus.setAttribute('aria-label','Add one '+p.name);
 
-    plus.onclick = () => {
-      if (cart[p.id] < 20) cart[p.id]++;
+    plus.onclick=()=>{
+      if(cart[p.id]<20)cart[p.id]++;
       renderCart();
     };
 
-    controls.append(minus, number, plus);
-    left.append(name, controls);
+    controls.append(minus,number,plus);
+    left.append(name,controls);
 
-    const amount = document.createElement('strong');
-    amount.textContent = money(qty * p.price);
+    const amount=document.createElement('strong');
+    amount.textContent=money(qty*p.price);
 
-    line.append(left, amount);
+    line.append(left,amount);
     lines.append(line);
   }
 
-  if (!count) {
-    const empty = document.createElement('p');
-    empty.className = 'muted';
-    empty.textContent = 'Your cart is empty. Add something you like!';
+  if(!count){
+    const empty=document.createElement('p');
+    empty.className='muted';
+    empty.textContent='Your cart is empty. Add something you like!';
     lines.append(empty);
   }
 
-  document.getElementById('total').textContent = money(total);
-  document.getElementById('cartCount').textContent = '(' + count + ')';
-  document.getElementById('payButton').disabled = !count;
+  document.getElementById('total').textContent=money(total);
+  document.getElementById('cartCount').textContent='('+count+')';
+  document.getElementById('payButton').disabled=!count;
 }
 
 renderCart();
+document.getElementById('year').textContent=new Date().getFullYear();
 
-document.getElementById('year').textContent =
-  new Date().getFullYear();
-
-// NEW: Save delivery credentials before leaving the store.
-// sessionStorage survives the Stripe redirect in the same browser tab,
-// but is not shared with other devices or browsers.
-function saveDeliveryCredentials(orderId, deliveryToken) {
-  if (
-    typeof orderId !== 'string' ||
-    !/^[0-9a-f-]{36}$/i.test(orderId) ||
-    typeof deliveryToken !== 'string' ||
+function saveDeliveryCredentials(orderId,deliveryToken){
+  if(
+    typeof orderId!=='string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId) ||
+    typeof deliveryToken!=='string' ||
     !/^[0-9a-f]{64}$/i.test(deliveryToken)
-  ) {
+  ){
     throw new Error('Invalid delivery credentials received.');
   }
 
-  const key = 'northstore_delivery_' + orderId;
-
-  sessionStorage.setItem(key, JSON.stringify({
-    orderId,
-    deliveryToken,
-    savedAt: Date.now()
-  }));
-
   sessionStorage.setItem(
-    'northstore_latest_order',
-    orderId
+    'northstore_delivery_'+orderId,
+    JSON.stringify({orderId,deliveryToken,savedAt:Date.now()})
   );
+
+  sessionStorage.setItem('northstore_latest_order',orderId);
 }
 
-// NEW: Handle Stripe return without trusting the URL as proof of payment.
-function handlePaymentReturn() {
-  const params = new URLSearchParams(window.location.search);
-  const payment = params.get('payment');
+// Create license cards using textContent, never innerHTML.
+function displayLicenses(licenses){
+  const container=document.getElementById('licenseList');
+  container.replaceChildren();
 
-  if (payment !== 'success' && payment !== 'cancelled') {
-    return;
+  for(const license of licenses){
+    const card=document.createElement('div');
+    card.className='license-card';
+
+    const product=document.createElement('strong');
+    const productInfo=PRODUCTS.find(p=>p.id===license.productId);
+    product.textContent=productInfo?productInfo.name:license.productId;
+
+    const code=document.createElement('code');
+    code.className='license-code';
+    code.textContent=license.licenseKey;
+
+    const actions=document.createElement('div');
+    actions.className='license-actions';
+
+    const copy=document.createElement('button');
+    copy.type='button';
+    copy.className='btn primary';
+    copy.textContent='Copy license key';
+
+    copy.addEventListener('click',async()=>{
+      try{
+        await navigator.clipboard.writeText(license.licenseKey);
+        copy.textContent='Copied!';
+        setTimeout(()=>copy.textContent='Copy license key',2000);
+      }catch{
+        copy.textContent='Select the key above to copy';
+      }
+    });
+
+    actions.append(copy);
+    card.append(product,code,actions);
+    container.append(card);
+  }
+}
+
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+async function retrieveLicenses(orderId,deliveryToken,sessionId){
+  const title=document.getElementById('paymentTitle');
+  const text=document.getElementById('paymentText');
+
+  // Allow webhook fulfillment a short time to finish.
+  // Each attempt is separately rate-limited on the server.
+  const delays=[0,2500,4000,6000,8000];
+
+  for(let attempt=0;attempt<delays.length;attempt++){
+    if(delays[attempt])await sleep(delays[attempt]);
+
+    try{
+      const response=await fetch(
+        API_BASE+'/get-purchased-licenses',
+        {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          cache:'no-store',
+          body:JSON.stringify({
+            orderId,
+            deliveryToken,
+            sessionId
+          })
+        }
+      );
+
+      const result=await response.json();
+
+      if(response.status===202){
+        title.textContent='Preparing your licenses';
+        text.textContent=result.message||
+          'Your purchase is being verified. Please wait.';
+        continue;
+      }
+
+      if(!response.ok){
+        throw new Error(result.error||'Unable to verify purchase');
+      }
+
+      if(
+        result.status!=='delivered' ||
+        !Array.isArray(result.licenses) ||
+        !result.licenses.length
+      ){
+        throw new Error('Unexpected license delivery response');
+      }
+
+      title.textContent='Your license keys are ready!';
+      text.textContent=
+        'Your purchase has been verified. Copy and save your license keys below.';
+
+      displayLicenses(result.licenses);
+
+      // Remove the session ID from the visible URL after delivery.
+      const cleanUrl=new URL(window.location.href);
+      cleanUrl.searchParams.delete('session_id');
+      cleanUrl.searchParams.delete('payment');
+      history.replaceState({},'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
+
+      return;
+
+    }catch(error){
+      title.textContent='License delivery unavailable';
+      text.textContent=
+        error.message+
+        '. If you completed payment, please contact support.';
+      return;
+    }
   }
 
-  const banner = document.getElementById('paymentBanner');
-  const title = document.getElementById('paymentTitle');
-  const text = document.getElementById('paymentText');
+  title.textContent='Payment processing';
+  text.textContent=
+    'Your license is not ready yet. Please keep this browser tab available and contact support if delivery does not complete.';
+}
+
+function handlePaymentReturn(){
+  const params=new URLSearchParams(window.location.search);
+  const payment=params.get('payment');
+
+  if(payment!=='success'&&payment!=='cancelled')return;
+
+  const banner=document.getElementById('paymentBanner');
+  const title=document.getElementById('paymentTitle');
+  const text=document.getElementById('paymentText');
 
   banner.classList.add('visible');
 
-  if (payment === 'cancelled') {
+  if(payment==='cancelled'){
     banner.classList.add('cancelled');
-    title.textContent = 'Checkout cancelled';
-    text.textContent =
+    title.textContent='Checkout cancelled';
+    text.textContent=
       'Your checkout was cancelled. No payment has been confirmed.';
     return;
   }
 
-  // A success URL alone is NOT proof that payment succeeded.
-  const sessionId = params.get('session_id');
+  const sessionId=params.get('session_id');
 
-  if (!sessionId) {
-    title.textContent = 'Unable to verify checkout';
-    text.textContent =
-      'Your payment return is missing its session reference. Please contact support.';
+  if(
+    typeof sessionId!=='string' ||
+    !/^cs_(test|live)_[a-zA-Z0-9]+$/.test(sessionId)
+  ){
+    title.textContent='Unable to verify checkout';
+    text.textContent=
+      'The checkout return contains an invalid session reference.';
     return;
   }
 
-  const orderId =
-    sessionStorage.getItem('northstore_latest_order');
+  const orderId=sessionStorage.getItem('northstore_latest_order');
 
-  let credentials = null;
+  let credentials=null;
 
-  if (orderId) {
-    try {
-      credentials = JSON.parse(
-        sessionStorage.getItem('northstore_delivery_' + orderId)
+  if(orderId){
+    try{
+      credentials=JSON.parse(
+        sessionStorage.getItem('northstore_delivery_'+orderId)
       );
-    } catch {
-      credentials = null;
+    }catch{
+      credentials=null;
     }
   }
 
-  if (!credentials || !credentials.deliveryToken) {
-    title.textContent = 'Delivery verification needed';
-    text.textContent =
-      'Your checkout returned, but this browser could not find its private delivery credential. Please contact support if you completed payment.';
+  if(
+    !credentials ||
+    credentials.orderId!==orderId ||
+    typeof credentials.deliveryToken!=='string'
+  ){
+    title.textContent='Delivery verification needed';
+    text.textContent=
+      'This browser could not find the private delivery credential. Please contact support if payment was completed.';
     return;
   }
 
-  title.textContent = 'Checkout returned';
-  text.textContent =
-    'Your payment is being prepared for secure verification. Instant license delivery will become available when the verification service is enabled.';
+  title.textContent='Verifying your purchase';
+  text.textContent=
+    'Please wait while we securely confirm payment and prepare your license keys.';
+
+  retrieveLicenses(orderId,credentials.deliveryToken,sessionId);
 }
 
 handlePaymentReturn();
 
 document.getElementById('checkoutForm').addEventListener(
   'submit',
-  async e => {
+  async e=>{
     e.preventDefault();
 
-    const msg = document.getElementById('message');
-    msg.className = 'error';
-    msg.textContent = '';
+    const msg=document.getElementById('message');
+    msg.className='error';
+    msg.textContent='';
 
-    const items = Object.entries(cart)
-      .filter(([, qty]) => qty > 0)
-      .map(([productId, quantity]) => ({
-        productId,
-        quantity
-      }));
+    const items=Object.entries(cart)
+      .filter(([,qty])=>qty>0)
+      .map(([productId,quantity])=>({productId,quantity}));
 
-    if (!items.length) {
-      msg.textContent = 'Your cart is empty.';
+    if(!items.length){
+      msg.textContent='Your cart is empty.';
       return;
     }
 
-    if (!API_BASE) {
-      msg.textContent = 'Payments are not configured yet.';
-      return;
-    }
+    const fd=new FormData(e.currentTarget);
+    const button=document.getElementById('payButton');
 
-    const form = e.currentTarget;
-    const fd = new FormData(form);
+    button.disabled=true;
+    button.textContent='Connecting securely…';
 
-    const button = document.getElementById('payButton');
-    button.disabled = true;
-    button.textContent = 'Connecting securely…';
-
-    try {
-      const response = await fetch(
-        API_BASE + '/create-checkout',
+    try{
+      const response=await fetch(
+        API_BASE+'/create-checkout',
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
             items,
-            method: fd.get('method'),
-            customer: {
-              name: fd.get('name'),
-              email: fd.get('email'),
-              phone: fd.get('phone'),
-              address: fd.get('address'),
-              postalCode: fd.get('postalCode'),
-              city: fd.get('city')
+            method:fd.get('method'),
+            customer:{
+              name:fd.get('name'),
+              email:fd.get('email'),
+              phone:fd.get('phone'),
+              address:fd.get('address'),
+              postalCode:fd.get('postalCode'),
+              city:fd.get('city')
             }
           })
         }
       );
 
-      const result = await response.json();
+      const result=await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          result.error || 'Unable to start checkout'
-        );
+      if(!response.ok){
+        throw new Error(result.error||'Unable to start checkout');
       }
 
-      if (
-        typeof result.checkoutUrl !== 'string' ||
-        typeof result.orderId !== 'string' ||
-        typeof result.deliveryToken !== 'string'
-      ) {
-        throw new Error(
-          'The server did not return complete checkout details.'
-        );
+      if(
+        typeof result.checkoutUrl!=='string' ||
+        typeof result.orderId!=='string' ||
+        typeof result.deliveryToken!=='string'
+      ){
+        throw new Error('Incomplete checkout details');
       }
 
-      const url = new URL(result.checkoutUrl);
+      const url=new URL(result.checkoutUrl);
 
-      if (
-        url.protocol !== 'https:' ||
+      if(
+        url.protocol!=='https:' ||
         !(
-          url.hostname === 'checkout.stripe.com' ||
+          url.hostname==='checkout.stripe.com' ||
           url.hostname.endsWith('.checkout.stripe.com')
         )
-      ) {
-        throw new Error('Invalid Stripe payment URL.');
+      ){
+        throw new Error('Invalid Stripe payment URL');
       }
 
-      // CRITICAL: Save before redirecting to Stripe.
-      saveDeliveryCredentials(
-        result.orderId,
-        result.deliveryToken
-      );
+      // Save private delivery credentials BEFORE Stripe redirect.
+      saveDeliveryCredentials(result.orderId,result.deliveryToken);
 
       window.location.assign(url.href);
 
-    } catch (err) {
-      msg.textContent =
-        err.message ||
+    }catch(error){
+      msg.textContent=error.message||
         'Payment connection failed. Please try again.';
 
-      button.disabled = false;
-      button.textContent = 'Continue to secure payment';
+      button.disabled=false;
+      button.textContent='Continue to secure payment';
     }
   }
 );
 </script>
-
 </body>
 </html>
