@@ -82,6 +82,8 @@ button{cursor:pointer}
 .top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .login-link{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:#192740;color:#e9efff;text-decoration:none;font-weight:650;font-size:13px;white-space:nowrap}
 .login-link:hover{border-color:var(--accent);background:#243557}
+.discord-nav{background:#5865f2;border-color:#5865f2;color:white}
+.discord-nav:hover{background:#4752c4;border-color:#4752c4}
 .login-link:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 @media(max-width:650px){.top{align-items:flex-start;flex-direction:column;padding-bottom:18px}.top-actions{justify-content:flex-start;width:100%;gap:8px}.login-link{flex:1;white-space:normal;text-align:center;padding:10px 8px}.cart-button{padding:10px 12px}}
 </style>
@@ -95,6 +97,7 @@ button{cursor:pointer}
   <nav class="top-actions" aria-label="Account and cart links">
     <a class="login-link" href="https://swishinator.online/" target="_blank" rel="noopener noreferrer">Swishinator Login</a>
     <a class="login-link" href="https://bankinator.online/login.html" target="_blank" rel="noopener noreferrer">Bankinator Login</a>
+    <a class="login-link discord-nav" href="https://discord.gg/4cYnWuFY5" target="_blank" rel="noopener noreferrer">Join our Discord</a>
     <button class="cart-button" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">
       Cart <span id="cartCount">(0)</span>
     </button>
@@ -638,7 +641,18 @@ function handlePaymentReturn() {
   retrieveLicenses(orderId, credentials.deliveryToken, sessionId);
 }
 
-handlePaymentReturn();
+// Preview-only mode: fake keys, no Stripe checkout or Supabase calls.
+const previewProduct = new URLSearchParams(location.search).get('preview');
+if (previewProduct === 'swishinator' || previewProduct === 'bankinator') {
+  const banner = document.getElementById('paymentBanner');
+  banner.classList.add('visible');
+  document.getElementById('paymentTitle').textContent = 'DEMO PREVIEW — No purchase made';
+  document.getElementById('paymentText').textContent = 'This is a visual preview only. The sample key is not valid and cannot activate an account.';
+  displayLicenses([{ productId: previewProduct, licenseKey: 'DEMO-ONLY-NOT-A-REAL-LICENSE' }]);
+  banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+} else {
+  handlePaymentReturn();
+}
 
 document.getElementById('checkoutForm').addEventListener(
   'submit',
