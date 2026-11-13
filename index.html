@@ -66,8 +66,24 @@ button{cursor:pointer}
 .license-card strong{display:block;margin-bottom:9px}
 .license-code{display:block;width:100%;overflow-wrap:anywhere;padding:12px;background:#080e1c;border:1px solid #33415e;border-radius:9px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--good);margin-bottom:10px}
 .license-actions{display:flex;gap:10px;flex-wrap:wrap}
+.setup-guide{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);color:var(--text)}
+.setup-guide h3{font-size:17px;margin:0 0 10px}
+.setup-guide h4{font-size:14px;margin:18px 0 8px;color:#d6e0f2}
+.setup-guide p,.setup-guide li{font-size:13px;line-height:1.65;color:var(--muted)}
+.setup-guide ol{padding-left:22px;margin:8px 0}
+.setup-guide a.setup-link{display:inline-block;margin:8px 0 10px;padding:12px 16px;border-radius:10px;background:var(--accent);color:#081128;text-decoration:none;font-weight:750;overflow-wrap:anywhere}
+.setup-guide a.setup-link:focus-visible{outline:3px solid white;outline-offset:3px}
+.setup-guide .setup-note{padding:11px;background:#18243a;border-radius:10px;margin-top:14px}
+
 @media(max-width:850px){.layout{grid-template-columns:1fr}.panel{position:static}.products{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:500px){.wrap{padding:15px}.products{gap:10px}.product-body{padding:12px}.art{height:120px;font-size:45px}.product h3{font-size:15px}.desc{font-size:12px}.product-bottom{align-items:stretch;flex-direction:column}.price{font-size:17px}.btn{padding:11px}.hero{padding:12px 0 22px}}
+.discord-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:#5865f2;border-color:#5865f2;color:#fff;margin-top:12px}
+.discord-link:hover{background:#4752c4;border-color:#4752c4}
+.top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.login-link{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:#192740;color:#e9efff;text-decoration:none;font-weight:650;font-size:13px;white-space:nowrap}
+.login-link:hover{border-color:var(--accent);background:#243557}
+.login-link:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+@media(max-width:650px){.top{align-items:flex-start;flex-direction:column;padding-bottom:18px}.top-actions{justify-content:flex-start;width:100%;gap:8px}.login-link{flex:1;white-space:normal;text-align:center;padding:10px 8px}.cart-button{padding:10px 12px}}
 </style>
 </head>
 
@@ -76,9 +92,13 @@ button{cursor:pointer}
 
 <header class="top">
   <div class="logo">NORTH<span>STORE.</span></div>
-  <button class="cart-button" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">
-    Cart <span id="cartCount">(0)</span>
-  </button>
+  <nav class="top-actions" aria-label="Account and cart links">
+    <a class="login-link" href="https://swishinator.online/" target="_blank" rel="noopener noreferrer">Swishinator Login</a>
+    <a class="login-link" href="https://bankinator.online/login.html" target="_blank" rel="noopener noreferrer">Bankinator Login</a>
+    <button class="cart-button" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">
+      Cart <span id="cartCount">(0)</span>
+    </button>
+  </nav>
 </header>
 
 <section id="paymentBanner" class="payment-banner" role="status" aria-live="polite">
@@ -193,7 +213,7 @@ const PRODUCTS = [
     id: 'swishinator',
     name: 'Swishinator',
     description: 'Swishinator product.',
-    price: 1,
+    price: 50,
     emoji: '💠'
   },
   {
@@ -355,6 +375,82 @@ function saveDeliveryCredentials(orderId, deliveryToken) {
   sessionStorage.setItem('northstore_latest_order', orderId);
 }
 
+const REGISTRATION_URLS = Object.freeze({
+  swishinator: 'https://swishinator.online/',
+  bankinator: 'https://bankinator.online/login.html'
+});
+
+function makeSetupGuide(productId) {
+  const url = REGISTRATION_URLS[productId];
+  if (!url) return null;
+
+  const guide = document.createElement('section');
+  guide.className = 'setup-guide';
+  const heading = document.createElement('h3');
+  heading.textContent = 'Set up your account';
+  guide.append(heading);
+
+  const intro = document.createElement('p');
+  intro.textContent = 'Follow these steps on the phone you plan to use.';
+  guide.append(intro);
+
+  const link = document.createElement('a');
+  link.className = 'setup-link';
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = 'Open ' + (productId === 'swishinator' ? 'Swishinator' : 'Bankinator') + ' registration';
+  guide.append(link);
+
+  function addSteps(title, steps) {
+    const h = document.createElement('h4');
+    h.textContent = title;
+    const list = document.createElement('ol');
+    for (const step of steps) {
+      const li = document.createElement('li');
+      li.textContent = step;
+      list.append(li);
+    }
+    guide.append(h, list);
+  }
+
+  addSteps('Create your account', [
+    'Open the registration website using the button above.',
+    'Choose Register or Create account (if shown).',
+    'Enter your purchased license key when the site requests a license or invitation code.',
+    'Choose your account details and complete registration.',
+    'Log in to your account before adding the app to your home screen.'
+  ]);
+
+  addSteps('iPhone / iPad (Safari)', [
+    'Open the logged-in application in Safari.',
+    'Tap the Share button (square with an upward arrow).',
+    'Select Add to Home Screen, then tap Add.',
+    'Open the application using the new home-screen icon.'
+  ]);
+
+  addSteps('Android (Chrome)', [
+    'Open the logged-in application in Chrome.',
+    'Tap the three-dot menu.',
+    'Select Add to Home screen or Install app, then confirm.',
+    'Open the application from your home screen.'
+  ]);
+
+  const note = document.createElement('p');
+  note.className = 'setup-note';
+  note.textContent = 'Keep your license key private. If your account is tied to one device, register on the device you intend to use. Home-screen installation options depend on your browser and device.';
+  guide.append(note);
+
+  const discord = document.createElement('a');
+  discord.className = 'btn discord-link';
+  discord.href = 'https://discord.gg/4cYnWuFY5';
+  discord.target = '_blank';
+  discord.rel = 'noopener noreferrer';
+  discord.textContent = 'Join our Discord';
+  guide.append(discord);
+  return guide;
+}
+
 function displayLicenses(licenses) {
   const container = document.getElementById('licenseList');
   container.replaceChildren();
@@ -393,6 +489,8 @@ function displayLicenses(licenses) {
 
     actions.append(copy);
     card.append(product, code, actions);
+    const guide = makeSetupGuide(license.productId);
+    if (guide) card.append(guide);
     container.append(card);
   }
 }
