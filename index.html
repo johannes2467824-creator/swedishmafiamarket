@@ -230,9 +230,16 @@ const PRODUCTS = [
   {
     id: 'swishinator-apk',
     name: 'Swishinator APK',
-    description: 'Swishinator för andriod och samsung.',
-    price: 50,
+    description: 'Swishinator för android och samsung.',
+    price: 10,
     emoji: '📱'
+  },
+  {
+    id: 'bankinator-apk',
+    name: 'Bankinator APK',
+    description: 'Bankinator för android och samsung.',
+    price: 100,
+    emoji: '📲'
   }
 ];
 
@@ -507,19 +514,28 @@ function displayLicenses(licenses, preserveExisting = false) {
   }
 }
 
-function displayApkDownload(orderId, deliveryToken, sessionId) {
+const APK_FILES = Object.freeze({
+  'swishinator-apk': 'swishinator.apk',
+  'bankinator-apk': 'bankinator.apk'
+});
+
+function displayApkDownload(orderId, deliveryToken, sessionId, productId) {
+  const filename = APK_FILES[productId];
+  if (!filename) return;
+  const productInfo = PRODUCTS.find(p => p.id === productId);
+  const name = productInfo ? productInfo.name : productId;
   const container = document.getElementById('licenseList');
   const card = document.createElement('div');
   card.className = 'license-card';
   const heading = document.createElement('strong');
-  heading.textContent = 'Swishinator APK — Android download';
+  heading.textContent = name + ' — Android download';
   const description = document.createElement('p');
   description.className = 'download-note';
   description.textContent = 'After payment is confirmed, click below to generate a private download link. The link expires after 60 seconds; you can request a new one here.';
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn primary';
-  button.textContent = 'Download Swishinator APK';
+  button.textContent = 'Download ' + name;
   const status = document.createElement('div');
   status.className = 'download-status';
   status.setAttribute('role', 'status');
@@ -531,25 +547,27 @@ function displayApkDownload(orderId, deliveryToken, sessionId) {
         method: 'POST',
         headers: API_HEADERS,
         cache: 'no-store',
-        body: JSON.stringify({ orderId, deliveryToken, sessionId })
+        body: JSON.stringify({ orderId, deliveryToken, sessionId, productId })
       });
       const result = await response.json();
       if (response.status === 202) {
         status.textContent = 'Payment is still being confirmed. Please try again shortly.';
         return;
       }
-      if (!response.ok || result.status !== 'ready' || typeof result.downloadUrl !== 'string') {
+      if (!response.ok || result.status !== 'ready' || result.productId !== productId ||
+          result.filename !== filename || typeof result.downloadUrl !== 'string') {
         throw new Error(result.error || 'Download unavailable');
       }
       const url = new URL(result.downloadUrl);
       const storageOrigin = new URL(API_BASE).origin;
+      const expectedPath = '/storage/v1/object/sign/paid-downloads/' + filename;
       if (url.protocol !== 'https:' || url.origin !== storageOrigin ||
-          !url.pathname.includes('/storage/v1/object/sign/paid-downloads/')) {
+          url.pathname !== expectedPath) {
         throw new Error('Invalid download link received');
       }
       const link = document.createElement('a');
       link.href = url.href;
-      link.download = 'swishinator.apk';
+      link.download = filename;
       link.rel = 'noopener noreferrer';
       document.body.append(link);
       link.click();
@@ -567,11 +585,12 @@ function displayApkDownload(orderId, deliveryToken, sessionId) {
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function retrieveLicenses(orderId, deliveryToken, sessionId, hasApk = false) {
+async function retrieveLicenses(orderId, deliveryToken, sessionId, expectedApks = []) {
   const title = document.getElementById('paymentTitle');
   const text = document.getElementById('paymentText');
 
   const delays = [0, 2500, 4000, 6000, 8000];
+  const hasApk = expectedApks.length > 0;
 
   for (let attempt = 0; attempt < delays.length; attempt++) {
     if (delays[attempt]) await sleep(delays[attempt]);
@@ -607,16 +626,30 @@ async function retrieveLicenses(orderId, deliveryToken, sessionId, hasApk = fals
       if (
         result.status !== 'delivered' ||
         !Array.isArray(result.licenses) ||
-        !result.licenses.length
+        !Array.isArray(result.purchasedApks)
       ) {
         throw new Error('Unexpected license delivery response');
       }
 
-      title.textContent = hasApk ? 'Your purchase is ready!' : 'Your license keys are ready!';
-      text.textContent =
-        'Your purchase has been verified. Copy and save your license keys below.';
+      const purchasedApks = result.purchasedApks.filter(id =>
+        Object.prototype.hasOwnProperty.call(APK_FILES, id)
+      );
+      if (result.licenses.length === 0 && purchasedApks.length === 0) {
+        throw new Error('No purchased products were returned');
+      }
+      title.textContent = 'Your purchase is ready!';
+      text.textContent = purchasedApks.length && result.licenses.length
+        ? 'Your licenses and APK downloads are ready below.'
+        : purchasedApks.length
+          ? 'Your payment is confirmed. Download your APK below.'
+          : 'Your purchase has been verified. Copy and save your license keys below.';
 
-      displayLicenses(result.licenses, hasApk);
+      const container = document.getElementById('licenseList');
+      container.replaceChildren();
+      displayLicenses(result.licenses, true);
+      for (const productId of purchasedApks) {
+        displayApkDownload(orderId, deliveryToken, sessionId, productId);
+      }
 
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('session_id');
@@ -631,7 +664,7 @@ async function retrieveLicenses(orderId, deliveryToken, sessionId, hasApk = fals
       return;
 
     } catch (error) {
-      title.textContent = hasApk ? 'APK download available — license delivery unavailable' : 'License delivery unavailable';
+      title.textContent = 'Purchase verification unavailable';
       text.textContent =
         error.message +
         '. If you completed payment, please contact support.';
@@ -639,9 +672,9 @@ async function retrieveLicenses(orderId, deliveryToken, sessionId, hasApk = fals
     }
   }
 
-  title.textContent = hasApk ? 'APK download available — license processing' : 'Payment processing';
+  title.textContent = 'Payment processing';
   text.textContent =
-    'Your license is not ready yet. Please keep this browser tab available and contact support if delivery does not complete.';
+    'Your purchase is not ready yet. Please keep this browser tab available and contact support if delivery does not complete.';
 }
 
 function handlePaymentReturn() {
@@ -702,24 +735,14 @@ function handlePaymentReturn() {
   }
 
   const purchasedItems = Array.isArray(credentials.purchasedItems)
-    ? credentials.purchasedItems : null;
-  const hasApk = purchasedItems?.some(item => item.productId === 'swishinator-apk' && item.quantity > 0) || false;
-  const hasLicenses = purchasedItems === null || purchasedItems.some(item =>
-    (item.productId === 'swishinator' || item.productId === 'bankinator') && item.quantity > 0
-  );
+    ? credentials.purchasedItems : [];
+  const expectedApks = [...new Set(purchasedItems
+    .filter(item => item && Object.prototype.hasOwnProperty.call(APK_FILES, item.productId) && item.quantity > 0)
+    .map(item => item.productId))];
 
   title.textContent = 'Verifying your purchase';
   text.textContent = 'Your order is being verified securely.';
-
-  if (hasApk) {
-    displayApkDownload(orderId, credentials.deliveryToken, sessionId);
-  }
-  if (hasLicenses) {
-    retrieveLicenses(orderId, credentials.deliveryToken, sessionId, hasApk);
-  } else if (hasApk) {
-    title.textContent = 'Swishinator APK — download your purchase';
-    text.textContent = 'Click the download button below. The server will verify your payment before granting access.';
-  }
+  retrieveLicenses(orderId, credentials.deliveryToken, sessionId, expectedApks);
 }
 
 // Preview-only mode: fake keys, no Stripe checkout or Supabase calls.
